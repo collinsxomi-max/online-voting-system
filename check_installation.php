@@ -1,294 +1,259 @@
 <?php
-/**
- * MongoDB Installation Checker
- * 
- * This script checks if your system is ready for the voting system
- * and provides step-by-step instructions to fix any issues
- */
+define('ALLOW_DB_FAILURE', true);
+require __DIR__ . '/backend/db.php';
+
+function envLabel(array $names): string
+{
+    return implode(' or ', array_map(static fn($name) => '$' . $name, $names));
+}
+
+$mongoUriNames = ['MONGO_URI', 'MONGODB_URI', 'MONGODB_URL'];
+$mongoDbNames = ['MONGO_DB', 'MONGODB_DB', 'MONGODB_DATABASE'];
+
+$phpVersionOk = version_compare(PHP_VERSION, '8.1.0', '>=');
+$mongoExtensionLoaded = extension_loaded('mongodb');
+$vendorExists = file_exists(__DIR__ . '/vendor/autoload.php');
+$mongoUri = null;
+$mongoDb = null;
+
+foreach ($mongoUriNames as $name) {
+    $value = readEnvironmentValue($name);
+    if ($value !== null) {
+        $mongoUri = $value;
+        break;
+    }
+}
+
+foreach ($mongoDbNames as $name) {
+    $value = readEnvironmentValue($name);
+    if ($value !== null) {
+        $mongoDb = $value;
+        break;
+    }
+}
 
 $checks = [];
 
-// 1. Check PHP Version
 $checks['PHP Version'] = [
-    'required' => '8.0+',
+    'required' => '8.1+',
     'current' => PHP_VERSION,
-    'status' => version_compare(PHP_VERSION, '8.0.0', '>=') ? '✅' : '❌',
-    'fix' => version_compare(PHP_VERSION, '8.0.0', '>=') ? null : 'Download newer XAMPP: https://www.apachefriends.org'
+    'status' => $phpVersionOk ? 'PASS' : 'FAIL',
+    'fix' => $phpVersionOk ? null : 'Upgrade the server to PHP 8.1 or newer.'
 ];
 
-// 2. Check MongoDB Extension
 $checks['MongoDB Extension'] = [
-    'required' => 'Installed',
-    'current' => extension_loaded('mongodb') ? 'Installed' : 'NOT FOUND',
-    'status' => extension_loaded('mongodb') ? '✅' : '❌',
-    'fix' => !extension_loaded('mongodb') ? 'Follow INSTALL_NOW.md - Step 1' : null
+    'required' => 'Installed and enabled',
+    'current' => $mongoExtensionLoaded ? 'Installed' : 'Missing',
+    'status' => $mongoExtensionLoaded ? 'PASS' : 'FAIL',
+    'fix' => $mongoExtensionLoaded ? null : 'Install and enable the PHP mongodb extension on the deployment server.'
 ];
 
-// 3. Check Composer Installation
-$composer_exists = file_exists(__DIR__ . '/composer.phar');
-$checks['Composer'] = [
-    'required' => 'Installed',
-    'current' => $composer_exists ? 'Installed' : 'NOT FOUND',
-    'status' => $composer_exists ? '✅' : '❌',
-    'fix' => !$composer_exists ? 'Download: https://getcomposer.org/download/' : null
+$checks['Composer Dependencies'] = [
+    'required' => 'vendor/autoload.php present',
+    'current' => $vendorExists ? 'Installed' : 'Missing',
+    'status' => $vendorExists ? 'PASS' : 'FAIL',
+    'fix' => $vendorExists ? null : 'Run composer install --no-dev on the deployment server during build/release.'
 ];
 
-// 4. Check Vendor Directory
-$vendor_exists = file_exists(__DIR__ . '/vendor/autoload.php');
-$checks['Vendor/Autoload'] = [
-    'required' => 'vendor/autoload.php',
-    'current' => $vendor_exists ? 'Found' : 'NOT FOUND',
-    'status' => $vendor_exists ? '✅' : '❌',
-    'fix' => !$vendor_exists ? 'Run: composer install (see INSTALL_NOW.md)' : null
+$checks['Mongo URI Env'] = [
+    'required' => envLabel($mongoUriNames),
+    'current' => $mongoUri !== null ? 'Configured' : 'Missing',
+    'status' => $mongoUri !== null ? 'PASS' : 'FAIL',
+    'fix' => $mongoUri !== null ? null : 'Add the MongoDB Atlas connection string as an environment variable.'
 ];
 
-// 5. Check MongoDB Connection (if possible)
-if (extension_loaded('mongodb') && $vendor_exists) {
-    try {
-        require __DIR__ . '/vendor/autoload.php';
-        $client = new MongoDB\Client("mongodb://localhost:27017");
-        $client->selectDatabase('local')->command(['ping' => 1]);
-        $checks['MongoDB Server'] = [
-            'required' => 'Running',
-            'current' => 'Connected',
-            'status' => '✅',
-            'fix' => null
-        ];
-    } catch (Exception $e) {
-        $checks['MongoDB Server'] = [
-            'required' => 'Running',
-            'current' => 'Connection Failed: ' . $e->getMessage(),
-            'status' => '❌',
-            'fix' => 'Start MongoDB: Open cmd and run: net start MongoDB'
-        ];
-    }
-} else {
-    $checks['MongoDB Server'] = [
-        'required' => 'Running',
-        'current' => 'Cannot check yet (extension/vendor missing)',
-        'status' => '⏳',
-        'fix' => 'First complete steps above'
-    ];
-}
-
-// 6. Check Database Schema
-$checks['Database Schema'] = [
-    'required' => 'collections created',
-    'current' => $vendor_exists ? 'Pending verification' : 'Cannot check',
-    'status' => '⏳',
-    'fix' => 'Automatically created on first use'
+$checks['Mongo DB Env'] = [
+    'required' => envLabel($mongoDbNames),
+    'current' => $mongoDb !== null ? $mongoDb : 'Not explicitly set',
+    'status' => $mongoDb !== null ? 'PASS' : 'WARN',
+    'fix' => $mongoDb !== null ? null : 'Optional, but recommended. Set the database name to voting-system.'
 ];
 
+$checks['Atlas Connection'] = [
+    'required' => 'Ping to MongoDB Atlas succeeds',
+    'current' => db_is_available() ? 'Connected successfully' : db_error_message(),
+    'status' => db_is_available() ? 'PASS' : 'FAIL',
+    'fix' => db_is_available() ? null : 'Verify Atlas IP/network access, environment variables, and that the mongodb extension is available in web PHP.'
+];
+
+$failures = array_filter($checks, static fn($check) => $check['status'] === 'FAIL');
+$warnings = array_filter($checks, static fn($check) => $check['status'] === 'WARN');
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voting System - Installation Checker</title>
+    <title>Voting System Deployment Check</title>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            max-width: 900px;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 960px;
             margin: 0 auto;
-            padding: 20px;
-            background: #f5f5f5;
+            padding: 24px;
+            background: #f3f6fb;
+            color: #122033;
         }
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            border-radius: 8px;
-            margin-bottom: 30px;
-            text-align: center;
+
+        .hero,
+        .panel,
+        .item {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 14px 30px rgba(17, 24, 39, 0.08);
         }
-        .header h1 {
+
+        .hero {
+            padding: 28px;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #0d47a1, #1565c0);
+            color: #fff;
+        }
+
+        .hero h1 {
+            margin: 0 0 8px;
+            font-size: 30px;
+        }
+
+        .hero p {
             margin: 0;
-            font-size: 2.5em;
+            opacity: 0.92;
         }
-        .header p {
-            margin: 10px 0 0 0;
-            font-size: 1.1em;
-            opacity: 0.9;
-        }
-        .check-grid {
+
+        .summary {
             display: grid;
-            gap: 15px;
-            margin-bottom: 30px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px;
+            margin-bottom: 20px;
         }
-        .check-item {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            border-left: 5px solid #ddd;
+
+        .panel {
+            padding: 18px 20px;
         }
-        .check-item.pass {
-            border-left-color: #4caf50;
-            background: #f1f8f4;
+
+        .panel strong {
+            display: block;
+            font-size: 26px;
+            margin-top: 6px;
         }
-        .check-item.fail {
-            border-left-color: #f44336;
-            background: #fef5f5;
+
+        .grid {
+            display: grid;
+            gap: 14px;
         }
-        .check-item.warning {
-            border-left-color: #ff9800;
-            background: #fff8f0;
+
+        .item {
+            padding: 18px 20px;
+            border-left: 6px solid #cbd5e1;
         }
-        .check-header {
+
+        .item.pass { border-left-color: #2e7d32; }
+        .item.fail { border-left-color: #c62828; }
+        .item.warn { border-left-color: #ef6c00; }
+
+        .row {
             display: flex;
             justify-content: space-between;
+            gap: 16px;
             align-items: center;
-            margin-bottom: 10px;
         }
-        .check-name {
-            font-weight: bold;
-            font-size: 1.1em;
+
+        .name {
+            font-weight: 700;
+            font-size: 18px;
         }
-        .check-status {
-            font-size: 2em;
-            margin: 0;
+
+        .badge {
+            font-weight: 700;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            letter-spacing: 0.04em;
         }
-        .check-details {
+
+        .badge.pass { background: #e8f5e9; color: #1b5e20; }
+        .badge.fail { background: #ffebee; color: #b71c1c; }
+        .badge.warn { background: #fff3e0; color: #e65100; }
+
+        .meta {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid #eee;
+            grid-template-columns: 160px 1fr;
+            gap: 8px 16px;
+            margin-top: 14px;
+            font-size: 14px;
         }
-        .detail {
-            font-size: 0.9em;
+
+        .label {
+            color: #546274;
+            font-weight: 600;
         }
-        .detail-label {
-            color: #666;
-            font-size: 0.8em;
-            text-transform: uppercase;
-            margin-bottom: 3px;
+
+        .value {
+            word-break: break-word;
         }
-        .detail-value {
-            font-family: 'Courier New', monospace;
-            color: #333;
-            font-weight: 500;
-            word-break: break-all;
-        }
-        .fix {
-            background: #fff3cd;
-            padding: 10px 15px;
-            border-radius: 4px;
-            margin-top: 10px;
-            margin-left: -20px;
-            margin-right: -20px;
-            margin-bottom: -20px;
-            padding-bottom: 10px;
-            border-radius: 0 0 8px 8px;
-        }
-        .fix-title {
-            color: #856404;
-            font-weight: bold;
-            font-size: 0.9em;
-            margin-bottom: 5px;
-        }
-        .fix-text {
-            color: #856404;
-            margin: 0;
-            padding: 0;
-        }
-        a {
-            color: #667eea;
-            text-decoration: none;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-        .summary {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            margin-top: 30px;
-        }
-        .summary h2 {
-            margin-top: 0;
-        }
-        .summary-pass {
-            color: #4caf50;
-            font-size: 1.2em;
-        }
-        .summary-fail {
-            color: #f44336;
-            font-size: 1.2em;
-        }
+
         code {
-            background: #f5f5f5;
+            background: #eef2f7;
             padding: 2px 6px;
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
+            border-radius: 6px;
+        }
+
+        ul {
+            margin: 10px 0 0 20px;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🗳️ Online Voting System</h1>
-        <p>Installation & Configuration Checker</p>
-    </div>
+    <section class="hero">
+        <h1>Online Voting Deployment Check</h1>
+        <p>This page verifies the same MongoDB setup the live app uses for registration and admin login.</p>
+    </section>
 
-    <div class="check-grid">
+    <section class="summary">
+        <div class="panel">
+            Status
+            <strong><?= empty($failures) ? 'Healthy' : 'Action Needed' ?></strong>
+        </div>
+        <div class="panel">
+            Failed Checks
+            <strong><?= count($failures) ?></strong>
+        </div>
+        <div class="panel">
+            Warnings
+            <strong><?= count($warnings) ?></strong>
+        </div>
+    </section>
+
+    <section class="grid">
         <?php foreach ($checks as $name => $check): ?>
-            <?php
-                $status_class = 'plain';
-                if ($check['status'] === '✅') $status_class = 'pass';
-                elseif ($check['status'] === '❌') $status_class = 'fail';
-                elseif ($check['status'] === '⏳') $status_class = 'warning';
-            ?>
-            <div class="check-item <?php echo $status_class; ?>">
-                <div class="check-header">
-                    <div class="check-name"><?php echo htmlspecialchars($name); ?></div>
-                    <div class="check-status"><?php echo $check['status']; ?></div>
+            <?php $statusClass = strtolower($check['status']); ?>
+            <div class="item <?= htmlspecialchars($statusClass) ?>">
+                <div class="row">
+                    <div class="name"><?= htmlspecialchars($name) ?></div>
+                    <div class="badge <?= htmlspecialchars($statusClass) ?>"><?= htmlspecialchars($check['status']) ?></div>
                 </div>
-                <div class="check-details">
-                    <div class="detail">
-                        <div class="detail-label">Required</div>
-                        <div class="detail-value"><?php echo htmlspecialchars($check['required']); ?></div>
-                    </div>
-                    <div class="detail">
-                        <div class="detail-label">Current</div>
-                        <div class="detail-value"><?php echo htmlspecialchars($check['current']); ?></div>
-                    </div>
+                <div class="meta">
+                    <div class="label">Required</div>
+                    <div class="value"><?= htmlspecialchars($check['required']) ?></div>
+                    <div class="label">Current</div>
+                    <div class="value"><?= htmlspecialchars($check['current']) ?></div>
+                    <?php if (!empty($check['fix'])): ?>
+                        <div class="label">Fix</div>
+                        <div class="value"><?= htmlspecialchars($check['fix']) ?></div>
+                    <?php endif; ?>
                 </div>
-                <?php if ($check['fix']): ?>
-                    <div class="fix">
-                        <div class="fix-title">ℹ️ Action Required:</div>
-                        <p class="fix-text"><?php echo $check['fix']; ?></p>
-                    </div>
-                <?php endif; ?>
             </div>
         <?php endforeach; ?>
-    </div>
+    </section>
 
-    <div class="summary">
-        <h2>📋 Next Steps</h2>
-        <?php
-            $failures = array_filter($checks, fn($c) => $c['status'] === '❌');
-            $warnings = array_filter($checks, fn($c) => $c['status'] === '⏳');
-        ?>
-        
-        <?php if (empty($failures)): ?>
-            <p class="summary-pass"><strong>✅ You're all set!</strong></p>
-            <p>Your voting system is ready to use. Open your browser and go to:</p>
-            <p><code>http://localhost/Online_voting_system/</code></p>
-        <?php else: ?>
-            <p class="summary-fail"><strong>⚠️ Setup Required</strong></p>
-            <p>You have <strong><?php echo count($failures); ?> issue(s)</strong> to fix before you can use the voting system.</p>
-            <p><strong>Please follow the instructions above</strong>, or open the <code>INSTALL_NOW.md</code> file in your project root for detailed step-by-step guidance.</p>
-            <p>The main issues are:</p>
-            <ul>
-                <?php foreach ($failures as $name => $check): ?>
-                    <li><strong><?php echo htmlspecialchars($name); ?>:</strong> <?php echo htmlspecialchars($check['current']); ?></li>
-                <?php endforeach; ?>
-            </ul>
-        <?php endif; ?>
-    </div>
-
+    <section class="panel" style="margin-top: 20px;">
+        <h2 style="margin-top: 0;">Most Likely Deployment Fix</h2>
+        <ul>
+            <li>Set <code>MONGO_URI</code> to your Atlas URI and <code>MONGO_DB</code> to <code>voting-system</code>.</li>
+            <li>Run <code>composer install --no-dev</code> on the server so <code>vendor/autoload.php</code> exists.</li>
+            <li>Make sure the server PHP runtime has the <code>mongodb</code> extension enabled.</li>
+            <li>Add your deployment server IP to MongoDB Atlas Network Access, or temporarily allow <code>0.0.0.0/0</code> while testing.</li>
+        </ul>
+    </section>
 </body>
 </html>
