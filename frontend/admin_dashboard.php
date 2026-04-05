@@ -6,9 +6,12 @@ if (!isset($_SESSION['admin'])) {
 }
 
 include '../backend/db.php';
+include '../backend/database_setup.php';
 
-$totalVoters = $conn->query('SELECT COUNT(*) AS total FROM students')->fetch_assoc()['total'] ?? 0;
-$votesCast = $conn->query('SELECT COUNT(*) AS total FROM votes')->fetch_assoc()['total'] ?? 0;
+initializeDatabase($conn);
+
+$totalVoters = $conn->selectCollection('students')->countDocuments();
+$votesCast = $conn->selectCollection('votes')->countDocuments();
 ?>
 
 <?php include '../includes/header.php'; ?>

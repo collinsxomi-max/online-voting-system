@@ -26,11 +26,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $studentsCollection = $conn->selectCollection('students');
+    $lookupConditions = [
+        ['reg_no' => $reg_no]
+    ];
+
+    if ($email !== '') {
+        $lookupConditions[] = ['email' => $email];
+    }
+
     $existing = $studentsCollection->findOne([
-        '$or' => [
-            ['email' => $email],
-            ['reg_no' => $reg_no]
-        ]
+        '$or' => $lookupConditions
     ]);
 
     if ($existing) {
