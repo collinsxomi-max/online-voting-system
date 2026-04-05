@@ -1,5 +1,6 @@
 <?php
 session_start();
+define('ALLOW_DB_FAILURE', true);
 include 'db.php';
 
 if (!isset($_SESSION['admin'])) {
@@ -7,8 +8,20 @@ if (!isset($_SESSION['admin'])) {
     exit;
 }
 
+if (!db_is_available()) {
+    $_SESSION['flash'] = ['type' => 'error', 'message' => db_error_message()];
+    header('Location: ../frontend/add_candidate.php');
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $candidate_id = $_POST['candidate_id'] ?? '';
+
+    if (!preg_match('/^[a-f\d]{24}$/i', $candidate_id)) {
+        $_SESSION['flash'] = ['type' => 'error', 'message' => 'Invalid candidate selected.'];
+        header('Location: ../frontend/add_candidate.php');
+        exit;
+    }
 
     try {
         $conn->selectCollection('candidates')->deleteOne([

@@ -1,5 +1,6 @@
 <?php
 session_start();
+define('ALLOW_DB_FAILURE', true);
 include 'db.php';
 
 if (!isset($_SESSION['admin'])) {
@@ -7,9 +8,21 @@ if (!isset($_SESSION['admin'])) {
     exit;
 }
 
+if (!db_is_available()) {
+    $_SESSION['flash'] = ['type' => 'error', 'message' => db_error_message()];
+    header('Location: ../frontend/add_position.php');
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $position_name = trim($_POST['position_name'] ?? '');
     $description = trim($_POST['description'] ?? '');
+
+    if ($position_name === '') {
+        $_SESSION['flash'] = ['type' => 'error', 'message' => 'Position name is required.'];
+        header('Location: ../frontend/add_position.php');
+        exit;
+    }
 
     try {
         $conn->selectCollection('positions')->insertOne([

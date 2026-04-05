@@ -5,38 +5,45 @@ if (!isset($_SESSION['student_reg_no'])) {
     exit;
 }
 
+define('ALLOW_DB_FAILURE', true);
 include __DIR__ . '/backend/db.php';
 
 $studentRegNo = $_SESSION['student_reg_no'];
 
 $positions = [];
-$positionsCollection = $conn->selectCollection('positions');
-foreach ($positionsCollection->find([], ['sort' => ['position_name' => 1]]) as $position) {
-    $positions[(string)$position['_id']] = $position['position_name'];
-}
-
-$positionIds = array_keys($positions);
-
+$positionIds = [];
 $votedPositionIds = [];
-$votesCollection = $conn->selectCollection('votes');
-foreach ($votesCollection->find(['student_reg_no' => $studentRegNo], ['projection' => ['position_id' => 1]]) as $vote) {
-    $posIdStr = (string)$vote['position_id'];
-    if (!in_array($posIdStr, $votedPositionIds)) {
-        $votedPositionIds[] = $posIdStr;
-    }
-}
-
-$remainingPositionIds = array_values(array_diff($positionIds, $votedPositionIds));
-$hasVoted = empty($remainingPositionIds);
-
+$remainingPositionIds = [];
+$hasVoted = false;
 $candidatesByPositionId = [];
-$candidatesCollection = $conn->selectCollection('candidates');
-foreach ($candidatesCollection->find([], ['sort' => ['position_id' => 1, 'name' => 1]]) as $candidate) {
-    $posId = (string)$candidate['position_id'];
-    if (!isset($candidatesByPositionId[$posId])) {
-        $candidatesByPositionId[$posId] = [];
+
+if (db_is_available()) {
+    $positionsCollection = $conn->selectCollection('positions');
+    foreach ($positionsCollection->find([], ['sort' => ['position_name' => 1]]) as $position) {
+        $positions[(string)$position['_id']] = $position['position_name'];
     }
-    $candidatesByPositionId[$posId][] = $candidate;
+
+    $positionIds = array_keys($positions);
+
+    $votesCollection = $conn->selectCollection('votes');
+    foreach ($votesCollection->find(['student_reg_no' => $studentRegNo], ['projection' => ['position_id' => 1]]) as $vote) {
+        $posIdStr = (string)$vote['position_id'];
+        if (!in_array($posIdStr, $votedPositionIds, true)) {
+            $votedPositionIds[] = $posIdStr;
+        }
+    }
+
+    $remainingPositionIds = array_values(array_diff($positionIds, $votedPositionIds));
+    $hasVoted = !empty($positionIds) && empty($remainingPositionIds);
+
+    $candidatesCollection = $conn->selectCollection('candidates');
+    foreach ($candidatesCollection->find([], ['sort' => ['position_id' => 1, 'name' => 1]]) as $candidate) {
+        $posId = (string)$candidate['position_id'];
+        if (!isset($candidatesByPositionId[$posId])) {
+            $candidatesByPositionId[$posId] = [];
+        }
+        $candidatesByPositionId[$posId][] = $candidate;
+    }
 }
 ?>
 
@@ -48,7 +55,17 @@ foreach ($candidatesCollection->find([], ['sort' => ['position_id' => 1, 'name' 
   <section class="panel">
     <h2>Cast Your Vote</h2>
 
-    <?php if ($hasVoted): ?>
+    <?php if (!db_is_available()): ?>
+      <div class="alert error">
+        <span class="icon">&#9888;</span>
+        <span><?= htmlspecialchars(db_error_message()) ?></span>
+      </div>
+    <?php elseif (empty($positions)): ?>
+      <div class="alert error">
+        <span class="icon">&#9888;</span>
+        <span>No election positions are available yet.</span>
+      </div>
+    <?php elseif ($hasVoted): ?>
       <div class="alert success">
         <span class="icon">&#10003;</span>
         <span>You have already cast your vote for all positions.</span>

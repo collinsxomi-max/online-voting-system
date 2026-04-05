@@ -1,25 +1,3 @@
 <?php
-include 'db.php';
-
-$sql = "SELECT c.name, p.position_name AS position, COUNT(v.vote_id) AS total_votes
-        FROM candidates c
-        JOIN positions p ON c.position_id = p.position_id
-        LEFT JOIN votes v ON c.candidate_id = v.candidate_id
-        GROUP BY c.candidate_id, c.name, p.position_name
-        ORDER BY p.position_name, total_votes DESC";
-
-$result = $conn->query($sql);
-
-echo "<h2>Election Results</h2>";
-echo "<table border='1'>
-        <tr><th>Candidate</th><th>Position</th><th>Total Votes</th></tr>";
-
-while ($row = $result->fetch_assoc()) {
-    echo "<tr>
-            <td>{$row['name']}</td>
-            <td>{$row['position']}</td>
-            <td>{$row['total_votes']}</td>
-          </tr>";
-}
-echo "</table>";
+include __DIR__ . '/../results.php';
 ?>

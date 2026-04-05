@@ -5,29 +5,31 @@ if (!isset($_SESSION['admin'])) {
     exit;
 }
 
+define('ALLOW_DB_FAILURE', true);
 include '../backend/db.php';
 
 $positions = [];
-foreach ($conn->selectCollection('positions')->find([], ['sort' => ['position_name' => 1]]) as $pos) {
-    $positions[] = [
-        '_id' => (string)$pos['_id'],
-        'position_name' => $pos['position_name']
-    ];
-}
-
 $candidates = [];
-foreach ($conn->selectCollection('candidates')->find([], ['sort' => ['position_id' => 1, 'name' => 1]]) as $cand) {
-    // Find the position name for this candidate
-    $positionId = $cand['position_id'];
-    if (is_string($positionId)) {
-        $positionId = new \MongoDB\BSON\ObjectId($positionId);
+if (db_is_available()) {
+    foreach ($conn->selectCollection('positions')->find([], ['sort' => ['position_name' => 1]]) as $pos) {
+        $positions[] = [
+            '_id' => (string)$pos['_id'],
+            'position_name' => $pos['position_name']
+        ];
     }
-    $pos = $conn->selectCollection('positions')->findOne(['_id' => $positionId]);
-    $candidates[] = [
-        '_id' => (string)$cand['_id'],
-        'name' => $cand['name'],
-        'position_name' => $pos ? $pos['position_name'] : 'Unknown'
-    ];
+
+    foreach ($conn->selectCollection('candidates')->find([], ['sort' => ['position_id' => 1, 'name' => 1]]) as $cand) {
+        $positionId = $cand['position_id'];
+        if (is_string($positionId)) {
+            $positionId = new \MongoDB\BSON\ObjectId($positionId);
+        }
+        $pos = $conn->selectCollection('positions')->findOne(['_id' => $positionId]);
+        $candidates[] = [
+            '_id' => (string)$cand['_id'],
+            'name' => $cand['name'],
+            'position_name' => $pos ? $pos['position_name'] : 'Unknown'
+        ];
+    }
 }
 ?>
 
@@ -39,15 +41,22 @@ foreach ($conn->selectCollection('candidates')->find([], ['sort' => ['position_i
   <section class="panel">
     <h2>Manage Candidates</h2>
 
+    <?php if (!db_is_available()): ?>
+      <div class="alert error">
+        <span class="icon">&#9888;</span>
+        <span><?= htmlspecialchars(db_error_message()) ?></span>
+      </div>
+    <?php endif; ?>
+
     <form action="<?= $baseUrl ?>/backend/add_candidate.php" method="post">
       <div class="form-group">
         <label for="name">Name</label>
-        <input id="name" class="form-control" type="text" name="name" required>
+        <input id="name" class="form-control" type="text" name="name" required <?= db_is_available() ? '' : 'disabled' ?>>
       </div>
 
       <div class="form-group">
         <label for="position_id">Position</label>
-        <select id="position_id" class="form-control" name="position_id" required>
+        <select id="position_id" class="form-control" name="position_id" required <?= db_is_available() ? '' : 'disabled' ?>>
           <option value="">Select a position</option>
           <?php foreach ($positions as $position): ?>
             <option value="<?= $position['_id'] ?>"><?= htmlspecialchars($position['position_name']) ?></option>
@@ -55,7 +64,7 @@ foreach ($conn->selectCollection('candidates')->find([], ['sort' => ['position_i
         </select>
       </div>
 
-      <button class="button button-primary" type="submit">Add Candidate</button>
+      <button class="button button-primary" type="submit" <?= db_is_available() ? '' : 'disabled' ?>>Add Candidate</button>
     </form>
 
     <?php if (!empty($candidates)): ?>

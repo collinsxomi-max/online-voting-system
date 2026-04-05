@@ -5,18 +5,26 @@ if (!isset($_SESSION['student_reg_no'])) {
     exit;
 }
 
+define('ALLOW_DB_FAILURE', true);
 include '../backend/db.php';
 
 $studentRegNo = $_SESSION['student_reg_no'];
 $fullName = 'Student';
+$dbAvailable = db_is_available();
+$dbError = $dbAvailable ? null : db_error_message();
 
-$student = $conn->selectCollection('students')->findOne(['reg_no' => $studentRegNo]);
-if ($student) {
-    $fullName = $student['full_name'];
+if ($dbAvailable) {
+    $student = $conn->selectCollection('students')->findOne(['reg_no' => $studentRegNo]);
+    if ($student) {
+        $fullName = $student['full_name'];
+    }
+
+    $totalVoters = $conn->selectCollection('students')->countDocuments();
+    $votesCast = $conn->selectCollection('votes')->countDocuments();
+} else {
+    $totalVoters = 0;
+    $votesCast = 0;
 }
-
-$totalVoters = $conn->selectCollection('students')->countDocuments();
-$votesCast = $conn->selectCollection('votes')->countDocuments();
 
 include '../includes/header.php';
 ?>
@@ -25,6 +33,13 @@ include '../includes/header.php';
   <?php include '../includes/sidebar_student.php'; ?>
 
   <section class="panel">
+    <?php if (!$dbAvailable): ?>
+      <div class="alert error">
+        <span class="icon">&#9888;</span>
+        <span><?= htmlspecialchars($dbError) ?></span>
+      </div>
+    <?php endif; ?>
+
     <div class="profile-card">
       <div class="profile-badge">
         <div class="profile-avatar"><?= strtoupper(substr($fullName, 0, 1)) ?></div>

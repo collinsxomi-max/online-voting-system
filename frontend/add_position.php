@@ -5,15 +5,18 @@ if (!isset($_SESSION['admin'])) {
     exit;
 }
 
+define('ALLOW_DB_FAILURE', true);
 include '../backend/db.php';
 
 $positions = [];
-foreach ($conn->selectCollection('positions')->find([], ['sort' => ['position_name' => 1]]) as $pos) {
-    $positions[] = [
-        '_id' => (string)$pos['_id'],
-        'position_name' => $pos['position_name'],
-        'description' => $pos['description'] ?? ''
-    ];
+if (db_is_available()) {
+    foreach ($conn->selectCollection('positions')->find([], ['sort' => ['position_name' => 1]]) as $pos) {
+        $positions[] = [
+            '_id' => (string)$pos['_id'],
+            'position_name' => $pos['position_name'],
+            'description' => $pos['description'] ?? ''
+        ];
+    }
 }
 
 $flash = $_SESSION['flash'] ?? null;
@@ -28,6 +31,13 @@ unset($_SESSION['flash']);
   <section class="panel">
     <h2>Manage Election Positions</h2>
 
+    <?php if (!db_is_available()): ?>
+      <div class="alert error">
+        <span class="icon">&#9888;</span>
+        <span><?= htmlspecialchars(db_error_message()) ?></span>
+      </div>
+    <?php endif; ?>
+
     <?php if ($flash): ?>
       <div class="alert <?= $flash['type'] ?>">
         <span class="icon"><?= $flash['type'] === 'success' ? '&#10003;' : '&#9888;' ?></span>
@@ -38,15 +48,15 @@ unset($_SESSION['flash']);
     <form action="<?= $baseUrl ?>/backend/add_position.php" method="post">
       <div class="form-group">
         <label for="position_name">Position Name</label>
-        <input id="position_name" class="form-control" type="text" name="position_name" required>
+        <input id="position_name" class="form-control" type="text" name="position_name" required <?= db_is_available() ? '' : 'disabled' ?>>
       </div>
 
       <div class="form-group">
         <label for="description">Description</label>
-        <textarea id="description" class="form-control" name="description" rows="3"></textarea>
+        <textarea id="description" class="form-control" name="description" rows="3" <?= db_is_available() ? '' : 'disabled' ?>></textarea>
       </div>
 
-      <button class="button button-primary" type="submit">Add Position</button>
+      <button class="button button-primary" type="submit" <?= db_is_available() ? '' : 'disabled' ?>>Add Position</button>
     </form>
 
     <?php if (!empty($positions)): ?>

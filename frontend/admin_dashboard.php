@@ -5,13 +5,20 @@ if (!isset($_SESSION['admin'])) {
     exit;
 }
 
+define('ALLOW_DB_FAILURE', true);
 include '../backend/db.php';
 include '../backend/database_setup.php';
 
-initializeDatabase($conn);
+$dbAvailable = db_is_available();
+$dbError = $dbAvailable ? null : db_error_message();
 
-$totalVoters = $conn->selectCollection('students')->countDocuments();
-$votesCast = $conn->selectCollection('votes')->countDocuments();
+if ($dbAvailable) {
+    $totalVoters = $conn->selectCollection('students')->countDocuments();
+    $votesCast = $conn->selectCollection('votes')->countDocuments();
+} else {
+    $totalVoters = 0;
+    $votesCast = 0;
+}
 ?>
 
 <?php include '../includes/header.php'; ?>
@@ -20,6 +27,13 @@ $votesCast = $conn->selectCollection('votes')->countDocuments();
   <?php include '../includes/sidebar_admin.php'; ?>
 
   <section class="panel">
+    <?php if (!$dbAvailable): ?>
+      <div class="alert error">
+        <span class="icon">&#9888;</span>
+        <span><?= htmlspecialchars($dbError) ?></span>
+      </div>
+    <?php endif; ?>
+
     <h2>Admin Dashboard</h2>
 
     <div class="stats-grid">
