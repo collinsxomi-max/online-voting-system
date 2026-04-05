@@ -8,16 +8,15 @@ if (!isset($_SESSION['admin'])) {
 }
 
 $issues = [];
-$sql = "SELECT v.vote_id, v.student_id, v.candidate_id, v.position_id, i.vote_hash
-        FROM votes v
-        JOIN integrity i ON v.vote_id = i.vote_id";
+$votes = db_find_many('votes');
 
-$result = $conn->query($sql);
-
-while ($row = $result->fetch_assoc()) {
-    $recalc = hash('sha256', $row['student_id'] . "-" . $row['position_id'] . "-" . $row['candidate_id'] . "-" . $row['vote_id']);
-    if (!hash_equals($recalc, $row['vote_hash'])) {
-        $issues[] = $row['vote_id'];
+foreach ($votes as $vote) {
+    $integrity = db_find_one('integrity', ['vote_id' => (int)$vote['vote_id']]);
+    if ($integrity) {
+        $recalc = hash('sha256', $vote['student_id'] . "-" . $vote['position_id'] . "-" . $vote['candidate_id'] . "-" . $vote['vote_id']);
+        if (!hash_equals($recalc, $integrity['vote_hash'])) {
+            $issues[] = $vote['vote_id'];
+        }
     }
 }
 

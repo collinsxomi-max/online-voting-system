@@ -14,29 +14,57 @@ include '../backend/db.php';
 
 $results = [];
 $departmentWinners = [];
-$sql = "SELECT d.department_id,
-               d.name AS department,
-               p.position_id,
-               p.position_name,
-               c.candidate_id,
-               c.name AS candidate_name,
-               COUNT(v.vote_id) AS total_votes
-        FROM candidates c
-        JOIN departments d ON c.department_id = d.department_id
-        JOIN positions p ON c.position_id = p.position_id
-        LEFT JOIN votes v ON c.candidate_id = v.candidate_id
-        GROUP BY d.department_id, p.position_id, c.candidate_id
-        ORDER BY d.name, p.position_name, total_votes DESC, c.name";
+$pipeline = [
+    [
+        '$lookup' => [
+            'from' => 'departments',
+            'localField' => 'department_id',
+            'foreignField' => 'department_id',
+            'as' => 'department'
+        ]
+    ],
+    [
+        '$lookup' => [
+            'from' => 'positions',
+            'localField' => 'position_id',
+            'foreignField' => 'position_id',
+            'as' => 'position'
+        ]
+    ],
+    [
+        '$lookup' => [
+            'from' => 'votes',
+            'localField' => 'candidate_id',
+            'foreignField' => 'candidate_id',
+            'as' => 'votes'
+        ]
+    ],
+    [
+        '$addFields' => [
+            'department_name' => ['$arrayElemAt' => ['$department.name', 0]],
+            'position_name' => ['$arrayElemAt' => ['$position.position_name', 0]],
+            'total_votes' => ['$size' => '$votes']
+        ]
+    ],
+    [
+        '$sort' => [
+            'department_name' => 1,
+            'position_name' => 1,
+            'total_votes' => -1,
+            'name' => 1
+        ]
+    ]
+];
 
-$res = $conn->query($sql);
-if (!$res) {
-    die('Database error: ' . $conn->error);
-}
+$cursor = db_collection('candidates')->aggregate($pipeline);
 
 $departmentWinners = [];
-while ($row = $res->fetch_assoc()) {
-    $dept = $row['department'];
+foreach ($cursor as $doc) {
+    $row = db_to_array($doc);
+    $dept = $row['department_name'];
     $position = $row['position_name'];
+    $row['department'] = $dept;
+    $row['candidate_name'] = $row['name'];
     $results[$dept][$position][] = $row;
 
     if (!isset($departmentWinners[$dept][$position]) || $row['total_votes'] > $departmentWinners[$dept][$position]['total_votes']) {

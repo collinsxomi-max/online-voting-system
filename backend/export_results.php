@@ -7,34 +7,63 @@ if (!isset($_SESSION['admin'])) {
     exit;
 }
 
-$$type = $_GET['type'] ?? 'full';
+$type = $_GET['type'] ?? 'full';
 $type = strtolower(trim($type));
 
 if ($type !== 'winners') {
     $type = 'full';
 }
 
-if ($type === 'winners') {
-    $sql = "SELECT d.name AS department,
-                   p.position_name,
-                   c.candidate_id,
-                   c.name AS candidate_name,
-                   COUNT(v.vote_id) AS total_votes
-            FROM candidates c
-            JOIN departments d ON c.department_id = d.department_id
-            JOIN positions p ON c.position_id = p.position_id
-            LEFT JOIN votes v ON c.candidate_id = v.candidate_id
-            GROUP BY d.department_id, p.position_id, c.candidate_id
-            ORDER BY d.name, p.position_name, total_votes DESC, c.name";
-    $res = $conn->query($sql);
-    if (!$res) {
-        die('Database error: ' . $conn->error);
-    }
+$pipeline = [
+    [
+        '$lookup' => [
+            'from' => 'departments',
+            'localField' => 'department_id',
+            'foreignField' => 'department_id',
+            'as' => 'department'
+        ]
+    ],
+    [
+        '$lookup' => [
+            'from' => 'positions',
+            'localField' => 'position_id',
+            'foreignField' => 'position_id',
+            'as' => 'position'
+        ]
+    ],
+    [
+        '$lookup' => [
+            'from' => 'votes',
+            'localField' => 'candidate_id',
+            'foreignField' => 'candidate_id',
+            'as' => 'votes'
+        ]
+    ],
+    [
+        '$addFields' => [
+            'department_name' => ['$arrayElemAt' => ['$department.name', 0]],
+            'position_name' => ['$arrayElemAt' => ['$position.position_name', 0]],
+            'total_votes' => ['$size' => '$votes']
+        ]
+    ],
+    [
+        '$sort' => [
+            'department_name' => 1,
+            'position_name' => 1,
+            'total_votes' => -1,
+            'name' => 1
+        ]
+    ]
+];
 
+$cursor = db_collection('candidates')->aggregate($pipeline);
+
+if ($type === 'winners') {
     $winners = [];
     $topScores = [];
-    while ($row = $res->fetch_assoc()) {
-        $key = $row['department'] . '||' . $row['position_name'];
+    foreach ($cursor as $doc) {
+        $row = db_to_array($doc);
+        $key = $row['department_name'] . '||' . $row['position_name'];
         $votes = (int)$row['total_votes'];
         if (!isset($topScores[$key]) || $votes > $topScores[$key]) {
             $topScores[$key] = $votes;
@@ -52,28 +81,12 @@ if ($type === 'winners') {
 
     foreach ($winners as $rows) {
         foreach ($rows as $row) {
-            fputcsv($output, [$row['department'], $row['position_name'], $row['candidate_name'], $row['total_votes']]);
+            fputcsv($output, [$row['department_name'], $row['position_name'], $row['name'], $row['total_votes']]);
         }
     }
 
     fclose($output);
     exit;
-}
-
-$sql = "SELECT d.name AS department,
-               p.position_name,
-               c.name AS candidate_name,
-               COUNT(v.vote_id) AS total_votes
-        FROM candidates c
-        JOIN departments d ON c.department_id = d.department_id
-        JOIN positions p ON c.position_id = p.position_id
-        LEFT JOIN votes v ON c.candidate_id = v.candidate_id
-        GROUP BY d.department_id, p.position_id, c.candidate_id
-        ORDER BY d.name, p.position_name, total_votes DESC, c.name";
-
-$res = $conn->query($sql);
-if (!$res) {
-    die('Database error: ' . $conn->error);
 }
 
 header('Content-Type: text/csv');
@@ -82,8 +95,9 @@ header('Content-Disposition: attachment; filename="election_results.csv"');
 $output = fopen('php://output', 'w');
 fputcsv($output, ['Department', 'Position', 'Candidate', 'Votes']);
 
-while ($row = $res->fetch_assoc()) {
-    fputcsv($output, [$row['department'], $row['position_name'], $row['candidate_name'], $row['total_votes']]);
+foreach ($cursor as $doc) {
+    $row = db_to_array($doc);
+    fputcsv($output, [$row['department_name'], $row['position_name'], $row['name'], $row['total_votes']]);
 }
 
 fclose($output);
