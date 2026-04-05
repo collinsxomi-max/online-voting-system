@@ -1,12 +1,22 @@
 <?php
 session_start();
+define('ALLOW_DB_FAILURE', true);
 include 'db.php';
+
+if (!db_is_available()) {
+    $_SESSION['flash'] = [
+        'type' => 'error',
+        'message' => 'Admin login is temporarily unavailable because the database connection is down.'
+    ];
+    header("Location: ../frontend/admin_login.php");
+    exit;
+}
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
-    $adminUser = getenv('ADMIN_USER') ?: 'admin';
-    $adminPass = getenv('ADMIN_PASS') ?: 'change-this-admin-password';
+    $adminUser = readEnvironmentValue('ADMIN_USER') ?: 'admin';
+    $adminPass = readEnvironmentValue('ADMIN_PASS') ?: 'change-this-admin-password';
 
     if ($username === $adminUser && hash_equals($adminPass, $password)) {
         $_SESSION['admin'] = true;

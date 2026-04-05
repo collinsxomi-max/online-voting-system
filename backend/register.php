@@ -1,6 +1,16 @@
 <?php
+define('ALLOW_DB_FAILURE', true);
 include 'db.php';
 session_start();
+
+if (!db_is_available()) {
+    $_SESSION['flash'] = [
+        'type' => 'error',
+        'message' => 'Registration is temporarily unavailable because the database connection is down.'
+    ];
+    header('Location: ../frontend/register.php');
+    exit;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $reg_no = trim($_POST['reg_no'] ?? '');
