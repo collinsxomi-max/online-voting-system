@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-labelledby="title desc">
+  <title id="title">Ballot box illustration</title>
+  <desc id="desc">A simple ballot box with a check-marked ballot.</desc>
+  <defs>
+    <linearGradient id="box" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f4c81"/>
+      <stop offset="100%" stop-color="#1a73e8"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e7eefb"/>
+    </linearGradient>
+  </defs>
+  <rect x="70" y="120" width="180" height="120" rx="18" fill="url(#box)"/>
+  <rect x="125" y="95" width="70" height="18" rx="6" fill="#0b2b4a"/>
+  <path d="M110 70h100a8 8 0 0 1 8 8v48H102V78a8 8 0 0 1 8-8z" fill="url(#paper)"/>
+  <path d="M130 96l18 18 40-40" fill="none" stroke="#e53935" stroke-linecap="round" stroke-linejoin="round" stroke-width="12"/>
+  <rect x="92" y="140" width="136" height="18" rx="8" fill="#d7e3f5" opacity=".7"/>
+  <rect x="100" y="170" width="120" height="14" rx="7" fill="#d7e3f5" opacity=".5"/>
+  <rect x="108" y="196" width="104" height="14" rx="7" fill="#d7e3f5" opacity=".35"/>
+</svg>

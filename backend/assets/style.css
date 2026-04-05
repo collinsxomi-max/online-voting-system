@@ -1,0 +1,148 @@
+:root {
+  --bg: linear-gradient(135deg, #f0f5ff, #ffffff);
+  --card: rgba(255, 255, 255, 0.92);
+  --text: #0f1a2b;
+  --muted: rgba(15, 26, 43, 0.65);
+  --primary: #e53935;
+  --primary-dark: #c62828;
+  --accent: #e53935;
+  --success: #43a047;
+  --danger: #e53935;
+  --radius: 14px;
+  --shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+  --font: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg);
+}
+
+.site-header {
+  width: 100%;
+  padding: 18px 24px;
+  background: rgba(255, 255, 255, 0.94);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.site-nav {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.site-nav a {
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  width: 100%;
+  box-sizing: border-box;
+  color: #fff;
+}
+
+.button-primary {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+}
+
+.button-secondary {
+  background: linear-gradient(135deg, rgba(0, 102, 204, 0.95), rgba(0, 40, 85, 0.95));
+  color: #fff;
+}
+
+.hero {
+  position: relative;
+  min-height: calc(100vh - 96px);
+  padding: 100px 18px 80px;
+  color: #fff;
+  background: linear-gradient(160deg, rgba(26, 115, 232, 0.86), rgba(5, 32, 76, 0.72)),
+    url('../images/voting-bg.jpg') center/cover no-repeat;
+  display: flex;
+  align-items: center;
+}
+
+.hero-content {
+  width: 100%;
+  max-width: 1160px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 40px;
+  align-items: center;
+}
+
+.hero-illustration {
+  height: 320px;
+  position: relative;
+  border-radius: 30px;
+  overflow: hidden;
+  background: linear-gradient(145deg, #f9fbff 0%, #e8f0fb 52%, #dce9f9 100%);
+  display: grid;
+  place-items: center;
+}
+
+.hero-ballot-image {
+  position: relative;
+  z-index: 1;
+  width: min(400px, 96%);
+  height: auto;
+  display: block;
+}
+
+.dashboard {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 20px;
+  max-width: 1100px;
+  margin: 36px auto 60px;
+  padding: 0 18px;
+}
+
+.panel, .card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px;
+}
+
+.form-control {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.alert {
+  padding: 12px 14px;
+  border-radius: 12px;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.alert.error {
+  background: rgba(229, 115, 115, 0.18);
+  color: #b71c1c;
+}
+
+.alert.success {
+  background: rgba(102, 187, 106, 0.18);
+  color: #1b5e20;
+}
