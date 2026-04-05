@@ -1,0 +1,8 @@
+vendor/
+composer.phar
+*.log
+*.tmp
+*.cache
+.DS_Store
+.vscode/
+.htaccess
