@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: online-voting-system
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /
+    autoDeployTrigger: commit
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: MONGO_DB
+        value: voting-system
+      - key: ADMIN_USER
+        sync: false
+      - key: ADMIN_PASS
+        sync: false

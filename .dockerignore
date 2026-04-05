@@ -1,0 +1,7 @@
+.git
+.gitignore
+backend/config.local.php
+vendor
+node_modules
+composer.phar
+*.log

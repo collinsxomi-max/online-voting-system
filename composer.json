@@ -2,7 +2,7 @@
     "name": "voting-system/online-voting",
     "description": "A secure online voting system for campus elections using MongoDB",
     "require": {
-        "php": ">=7.4",
+        "php": ">=8.1",
         "mongodb/mongodb": "^2.2"
     },
     "require-dev": {
