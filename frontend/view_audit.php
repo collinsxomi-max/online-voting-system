@@ -1,9 +1,6 @@
 <?php
-session_start();
-if (!isset($_SESSION['student_reg_no']) && !isset($_SESSION['admin'])) {
-    header('Location: login.php');
-    exit;
-}
+require_once __DIR__ . '/../includes/security.php';
+require_admin_session('admin_login.php', 'Admin access is required to view audit logs.');
 
 define('ALLOW_DB_FAILURE', true);
 include '../backend/db.php';
@@ -24,11 +21,7 @@ include '../includes/header.php';
 ?>
 
 <div class="dashboard">
-  <?php if (isset($_SESSION['admin'])): ?>
-    <?php include '../includes/sidebar_admin.php'; ?>
-  <?php else: ?>
-    <?php include '../includes/sidebar_student.php'; ?>
-  <?php endif; ?>
+  <?php include '../includes/sidebar_admin.php'; ?>
 
   <section class="panel">
     <h2>Audit Log</h2>

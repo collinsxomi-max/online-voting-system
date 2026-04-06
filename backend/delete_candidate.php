@@ -1,38 +1,37 @@
 <?php
-session_start();
+require_once __DIR__ . '/../includes/security.php';
 define('ALLOW_DB_FAILURE', true);
 include 'db.php';
 
-if (!isset($_SESSION['admin'])) {
-    header('Location: ../frontend/admin_login.php');
-    exit;
-}
+require_admin_session('../frontend/admin_login.php', 'Admin access is required.');
 
 if (!db_is_available()) {
-    $_SESSION['flash'] = ['type' => 'error', 'message' => db_error_message()];
-    header('Location: ../frontend/add_candidate.php');
-    exit;
+    set_flash_message('error', db_error_message());
+    redirect_to('../frontend/add_candidate.php');
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $candidate_id = $_POST['candidate_id'] ?? '';
+require_valid_csrf('../frontend/add_candidate.php');
 
-    if (!preg_match('/^[a-f\d]{24}$/i', $candidate_id)) {
-        $_SESSION['flash'] = ['type' => 'error', 'message' => 'Invalid candidate selected.'];
-        header('Location: ../frontend/add_candidate.php');
-        exit;
-    }
+$candidate_id = $_POST['candidate_id'] ?? '';
 
-    try {
-        $conn->selectCollection('candidates')->deleteOne([
-            '_id' => new \MongoDB\BSON\ObjectId($candidate_id)
-        ]);
-        $_SESSION['flash'] = ['type' => 'success', 'message' => 'Candidate deleted successfully.'];
-    } catch (\Exception $e) {
-        $_SESSION['flash'] = ['type' => 'error', 'message' => 'Unable to delete candidate.'];
-    }
-
-    header('Location: ../frontend/add_candidate.php');
-    exit;
+if (!preg_match('/^[a-f\d]{24}$/i', $candidate_id)) {
+    set_flash_message('error', 'Invalid candidate selected.');
+    redirect_to('../frontend/add_candidate.php');
 }
+
+try {
+    $result = $conn->selectCollection('candidates')->deleteOne([
+        '_id' => new \MongoDB\BSON\ObjectId($candidate_id)
+    ]);
+
+    if ($result->getDeletedCount() === 0) {
+        set_flash_message('error', 'Candidate not found.');
+    } else {
+        set_flash_message('success', 'Candidate deleted successfully.');
+    }
+} catch (\Exception $e) {
+    set_flash_message('error', 'Unable to delete candidate.');
+}
+
+redirect_to('../frontend/add_candidate.php');
 ?>

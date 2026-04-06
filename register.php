@@ -6,6 +6,7 @@
     <p>Register to vote in the upcoming election.</p>
 
     <form action="<?= $baseUrl ?>/backend/register.php" method="post" onsubmit="return validateRegistration();">
+      <?= csrf_input() ?>
       <div class="form-group">
         <label for="reg_no">Registration Number</label>
         <input id="reg_no" class="form-control" type="text" name="reg_no" required>

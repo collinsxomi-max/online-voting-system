@@ -1,41 +1,37 @@
 <?php
-session_start();
+require_once __DIR__ . '/../includes/security.php';
 define('ALLOW_DB_FAILURE', true);
 include 'db.php';
 
 if (!db_is_available()) {
-    $_SESSION['flash'] = [
-        'type' => 'error',
-        'message' => 'Admin login is temporarily unavailable. ' . db_error_message()
-    ];
-    header("Location: ../frontend/admin_login.php");
-    exit;
+    set_flash_message('error', 'Admin login is temporarily unavailable. ' . db_error_message());
+    redirect_to('../frontend/admin_login.php');
 }
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $username = trim($_POST['username'] ?? '');
-    $password = $_POST['password'] ?? '';
-    $adminUser = readEnvironmentValue('ADMIN_USER') ?: 'admin';
-    $adminPass = readEnvironmentValue('ADMIN_PASS') ?: 'admin123';
+require_valid_csrf('../frontend/admin_login.php');
 
-    if ($username === $adminUser && hash_equals($adminPass, $password)) {
-        $_SESSION['admin'] = true;
-        $_SESSION['admin_username'] = $adminUser;
+$username = trim($_POST['username'] ?? '');
+$password = $_POST['password'] ?? '';
+$adminUser = admin_username();
+$adminPass = admin_password();
 
-        if (function_exists('log_action')) {
-            log_action($conn, 'Admin logged in', 0);
-        }
+if ($adminUser === null || $adminPass === null) {
+    set_flash_message('error', 'Admin credentials are not configured. Set ADMIN_USER and ADMIN_PASS, or add admin_user and admin_pass to backend/config.local.php.');
+    redirect_to('../frontend/admin_login.php');
+}
 
-        header("Location: ../frontend/admin_dashboard.php");
-        exit;
+if (hash_equals($adminUser, $username) && hash_equals($adminPass, $password)) {
+    harden_session_after_login();
+    $_SESSION['admin'] = true;
+    $_SESSION['admin_username'] = $adminUser;
+
+    if (function_exists('log_action')) {
+        log_action($conn, 'Admin logged in', 0);
     }
 
-    $_SESSION['flash'] = [
-        'type' => 'error',
-        'message' => 'Invalid admin username or password.'
-    ];
-
-    header("Location: ../frontend/admin_login.php");
-    exit;
+    redirect_to('../frontend/admin_dashboard.php');
 }
+
+set_flash_message('error', 'Invalid admin username or password.');
+redirect_to('../frontend/admin_login.php');
 ?>

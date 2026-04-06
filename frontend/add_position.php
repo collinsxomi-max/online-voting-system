@@ -46,6 +46,7 @@ unset($_SESSION['flash']);
     <?php endif; ?>
 
     <form action="<?= $baseUrl ?>/backend/add_position.php" method="post">
+      <?= csrf_input() ?>
       <div class="form-group">
         <label for="position_name">Position Name</label>
         <input id="position_name" class="form-control" type="text" name="position_name" required <?= db_is_available() ? '' : 'disabled' ?>>

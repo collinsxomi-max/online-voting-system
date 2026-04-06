@@ -49,6 +49,7 @@ if (db_is_available()) {
     <?php endif; ?>
 
     <form action="<?= $baseUrl ?>/backend/add_candidate.php" method="post">
+      <?= csrf_input() ?>
       <div class="form-group">
         <label for="name">Name</label>
         <input id="name" class="form-control" type="text" name="name" required <?= db_is_available() ? '' : 'disabled' ?>>
@@ -83,6 +84,7 @@ if (db_is_available()) {
               <td><?= htmlspecialchars($candidate['position_name']) ?></td>
               <td>
                 <form method="post" action="<?= $baseUrl ?>/backend/delete_candidate.php" style="display:inline;">
+                  <?= csrf_input() ?>
                   <input type="hidden" name="candidate_id" value="<?= $candidate['_id'] ?>">
                   <button class="button button-danger" type="submit">Delete</button>
                 </form>

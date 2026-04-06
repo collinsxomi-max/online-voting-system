@@ -1,6 +1,9 @@
 <?php
+require_once __DIR__ . '/../includes/security.php';
 define('ALLOW_DB_FAILURE', true);
 include 'db.php';
+
+require_admin_session('../frontend/admin_login.php', 'Admin access is required to view audit logs.');
 
 $logs = [];
 if (db_is_available()) {

@@ -1,7 +1,5 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/security.php';
 
 $baseUrl = getenv('APP_BASE_PATH');
 $baseUrl = is_string($baseUrl) ? trim($baseUrl) : '';
@@ -61,7 +59,13 @@ function navActive(string $page): string {
 
             <?php if ($isStudent): ?>
                 <a href="<?= $baseUrl ?>/frontend/dashboard.php" class="<?= navActive('dashboard.php') ?>">Dashboard</a>
-                <a href="<?= $baseUrl ?>/backend/logout.php" class="button button-secondary">Logout</a>
+            <?php endif; ?>
+
+            <?php if ($isStudent || $isAdmin): ?>
+                <form action="<?= $baseUrl ?>/backend/logout.php" method="post" style="display:inline;">
+                    <?= csrf_input() ?>
+                    <button type="submit" class="button button-secondary">Logout</button>
+                </form>
             <?php else: ?>
                 <a href="<?= $baseUrl ?>/frontend/login.php" class="button button-secondary">Login</a>
                 <a href="<?= $baseUrl ?>/frontend/register.php" class="button button-danger">Register</a>

@@ -1,9 +1,13 @@
 <?php
+require_once __DIR__ . '/../includes/security.php';
 define('ALLOW_DB_FAILURE', true);
 include '../backend/db.php';
 include '../includes/header.php';
-$adminLoginAvailable = db_is_available();
-$adminLoginUnavailableMessage = 'Admin login is temporarily unavailable. ' . db_error_message();
+$adminCredentialsConfigured = admin_credentials_are_configured();
+$adminLoginAvailable = db_is_available() && $adminCredentialsConfigured;
+$adminLoginUnavailableMessage = !$adminCredentialsConfigured
+    ? 'Admin credentials are not configured. Set ADMIN_USER and ADMIN_PASS, or add admin_user and admin_pass to backend/config.local.php.'
+    : 'Admin login is temporarily unavailable. ' . db_error_message();
 ?>
 
 <div class="page-center">
@@ -19,6 +23,7 @@ $adminLoginUnavailableMessage = 'Admin login is temporarily unavailable. ' . db_
     <?php endif; ?>
 
     <form action="<?= $baseUrl ?>/backend/admin_login.php" method="post">
+      <?= csrf_input() ?>
       <div class="form-group">
         <label for="username">Username</label>
         <input id="username" class="form-control" type="text" name="username" required <?= $adminLoginAvailable ? '' : 'disabled' ?>>

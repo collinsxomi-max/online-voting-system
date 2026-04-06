@@ -77,6 +77,7 @@ if (db_is_available()) {
       </div>
     <?php else: ?>
       <form action="<?= $baseUrl ?>/backend/vote.php" method="post" onsubmit="return confirmVote();">
+        <?= csrf_input() ?>
         <?php foreach ($remainingPositionIds as $positionId): ?>
           <div class="card" style="margin-bottom: 18px;">
             <h3><?= htmlspecialchars($positions[$positionId]) ?></h3>

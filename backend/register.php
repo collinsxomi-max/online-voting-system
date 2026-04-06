@@ -1,66 +1,73 @@
 <?php
+require_once __DIR__ . '/../includes/security.php';
 define('ALLOW_DB_FAILURE', true);
 include 'db.php';
-session_start();
 
 if (!db_is_available()) {
-    $_SESSION['flash'] = [
-        'type' => 'error',
-        'message' => 'Registration is temporarily unavailable. ' . db_error_message()
-    ];
-    header('Location: ../frontend/register.php');
-    exit;
+    set_flash_message('error', 'Registration is temporarily unavailable. ' . db_error_message());
+    redirect_to('../frontend/register.php');
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $reg_no = trim($_POST['reg_no'] ?? '');
-    $full_name = trim($_POST['name'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
-    $confirm_password = $_POST['confirm_password'] ?? '';
+require_valid_csrf('../frontend/register.php');
 
-    if ($password !== $confirm_password) {
-        $_SESSION['flash'] = ['type' => 'error', 'message' => 'Passwords do not match.'];
-        header('Location: ../frontend/register.php');
-        exit;
-    }
+$reg_no = trim($_POST['reg_no'] ?? '');
+$full_name = trim($_POST['name'] ?? '');
+$email = strtolower(trim($_POST['email'] ?? ''));
+$password = $_POST['password'] ?? '';
+$confirm_password = $_POST['confirm_password'] ?? '';
 
-    $studentsCollection = $conn->selectCollection('students');
-    $lookupConditions = [
-        ['reg_no' => $reg_no]
-    ];
+if ($reg_no === '' || $full_name === '' || $password === '' || $confirm_password === '') {
+    set_flash_message('error', 'Registration number, full name, and password fields are required.');
+    redirect_to('../frontend/register.php');
+}
 
-    if ($email !== '') {
-        $lookupConditions[] = ['email' => $email];
-    }
+if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+    set_flash_message('error', 'Please provide a valid email address.');
+    redirect_to('../frontend/register.php');
+}
 
-    $existing = $studentsCollection->findOne([
-        '$or' => $lookupConditions
+if (strlen($password) < 8) {
+    set_flash_message('error', 'Password must be at least 8 characters long.');
+    redirect_to('../frontend/register.php');
+}
+
+if ($password !== $confirm_password) {
+    set_flash_message('error', 'Passwords do not match.');
+    redirect_to('../frontend/register.php');
+}
+
+$studentsCollection = $conn->selectCollection('students');
+$lookupConditions = [
+    ['reg_no' => $reg_no]
+];
+
+if ($email !== '') {
+    $lookupConditions[] = ['email' => $email];
+}
+
+$existing = $studentsCollection->findOne([
+    '$or' => $lookupConditions
+]);
+
+if ($existing) {
+    set_flash_message('error', 'Account already exists.');
+    redirect_to('../frontend/register.php');
+}
+
+$password_hash = password_hash($password, PASSWORD_BCRYPT);
+
+try {
+    $studentsCollection->insertOne([
+        'reg_no' => $reg_no,
+        'full_name' => $full_name,
+        'email' => $email,
+        'password_hash' => $password_hash,
+        'created_at' => new \MongoDB\BSON\UTCDateTime(time() * 1000)
     ]);
-
-    if ($existing) {
-        $_SESSION['flash'] = ['type' => 'error', 'message' => 'Account already exists.'];
-        header('Location: ../frontend/register.php');
-        exit;
-    }
-
-    $password_hash = password_hash($password, PASSWORD_BCRYPT);
-
-    try {
-        $studentsCollection->insertOne([
-            'reg_no' => $reg_no,
-            'full_name' => $full_name,
-            'email' => $email,
-            'password_hash' => $password_hash,
-            'created_at' => new \MongoDB\BSON\UTCDateTime(time() * 1000)
-        ]);
-        $_SESSION['flash'] = ['type' => 'success', 'message' => 'Registration successful. Please log in.'];
-        header('Location: ../frontend/login.php');
-        exit;
-    } catch (\Exception $e) {
-        $_SESSION['flash'] = ['type' => 'error', 'message' => 'Registration failed. Please try again.'];
-        header('Location: ../frontend/register.php');
-        exit;
-    }
+    set_flash_message('success', 'Registration successful. Please log in.');
+    redirect_to('../frontend/login.php');
+} catch (\Exception $e) {
+    set_flash_message('error', 'Registration failed. Please try again.');
+    redirect_to('../frontend/register.php');
 }
 ?>

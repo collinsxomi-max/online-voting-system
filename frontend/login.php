@@ -19,6 +19,7 @@ $loginUnavailableMessage = 'Login is temporarily unavailable. ' . db_error_messa
     <?php endif; ?>
 
     <form action="<?= $baseUrl ?>/backend/login.php" method="post">
+      <?= csrf_input() ?>
       <div class="form-group">
         <label for="reg_no">Registration Number</label>
         <input id="reg_no" class="form-control" type="text" name="reg_no" required <?= $loginAvailable ? '' : 'disabled' ?>>

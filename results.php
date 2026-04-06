@@ -18,7 +18,10 @@ if (db_is_available()) {
 
         foreach ($candidatesCollection->find(['position_id' => $posId], ['sort' => ['name' => 1]]) as $candidate) {
             $candId = $candidate['_id'];
-            $totalVotes = $votesCollection->countDocuments(['candidate_id' => $candId]);
+            $totalVotes = $votesCollection->countDocuments([
+                'candidate_id' => $candId,
+                'position_id' => $posId,
+            ]);
 
             $results[$posName][] = [
                 'candidate_id' => (string) $candId,
@@ -38,7 +41,11 @@ if (db_is_available()) {
 ?>
 
 <div class="dashboard">
-  <?php include __DIR__ . '/includes/sidebar_student.php'; ?>
+  <?php if (!empty($_SESSION['admin'])): ?>
+    <?php include __DIR__ . '/includes/sidebar_admin.php'; ?>
+  <?php elseif (!empty($_SESSION['student_reg_no'])): ?>
+    <?php include __DIR__ . '/includes/sidebar_student.php'; ?>
+  <?php endif; ?>
 
   <section class="panel">
     <h2>Election Results</h2>

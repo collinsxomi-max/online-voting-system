@@ -1,41 +1,35 @@
 <?php
-session_start();
+require_once __DIR__ . '/../includes/security.php';
 define('ALLOW_DB_FAILURE', true);
 include 'db.php';
 
-if (!isset($_SESSION['admin'])) {
-    header('Location: ../frontend/admin_login.php');
-    exit;
-}
+require_admin_session('../frontend/admin_login.php', 'Admin access is required.');
 
 if (!db_is_available()) {
-    $_SESSION['flash'] = ['type' => 'error', 'message' => db_error_message()];
-    header('Location: ../frontend/add_position.php');
-    exit;
+    set_flash_message('error', db_error_message());
+    redirect_to('../frontend/add_position.php');
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $position_name = trim($_POST['position_name'] ?? '');
-    $description = trim($_POST['description'] ?? '');
+require_valid_csrf('../frontend/add_position.php');
 
-    if ($position_name === '') {
-        $_SESSION['flash'] = ['type' => 'error', 'message' => 'Position name is required.'];
-        header('Location: ../frontend/add_position.php');
-        exit;
-    }
+$position_name = trim($_POST['position_name'] ?? '');
+$description = trim($_POST['description'] ?? '');
 
-    try {
-        $conn->selectCollection('positions')->insertOne([
-            'position_name' => $position_name,
-            'description' => $description,
-            'created_at' => new \MongoDB\BSON\UTCDateTime(time() * 1000)
-        ]);
-        $_SESSION['flash'] = ['type' => 'success', 'message' => 'Position added successfully.'];
-    } catch (\Exception $e) {
-        $_SESSION['flash'] = ['type' => 'error', 'message' => 'Unable to add position.'];
-    }
-
-    header('Location: ../frontend/add_position.php');
-    exit;
+if ($position_name === '') {
+    set_flash_message('error', 'Position name is required.');
+    redirect_to('../frontend/add_position.php');
 }
+
+try {
+    $conn->selectCollection('positions')->insertOne([
+        'position_name' => $position_name,
+        'description' => $description,
+        'created_at' => new \MongoDB\BSON\UTCDateTime(time() * 1000)
+    ]);
+    set_flash_message('success', 'Position added successfully.');
+} catch (\Exception $e) {
+    set_flash_message('error', 'Unable to add position.');
+}
+
+redirect_to('../frontend/add_position.php');
 ?>

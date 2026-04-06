@@ -1,4 +1,7 @@
 <?php
+require __DIR__ . '/includes/security.php';
+require_local_or_admin_access('frontend/admin_login.php', 'Admin sign-in is required to run database setup remotely.');
+
 define('ALLOW_DB_FAILURE', true);
 require __DIR__ . '/backend/db.php';
 require __DIR__ . '/backend/database_setup.php';
