@@ -98,6 +98,16 @@ function setDatabaseUnavailable(string $message, ?string $details = null): void
         "</body></html>");
 }
 
+function mongoConnectionAttempts(): int
+{
+    return 3;
+}
+
+function mongoRetryDelayMicros(): int
+{
+    return 250000;
+}
+
 function db_is_available(): bool
 {
     global $dbAvailable;
@@ -176,19 +186,40 @@ $dbConfigDiagnostics = [
     'db_configured' => $mongoDbConfig['value'] !== null,
 ];
 
-try {
-    $client = new Client($mongoUri);
-    $conn = $client->selectDatabase($dbname);
-    $conn->command(['ping' => 1]);
-    $dbAvailable = true;
-} catch (\Throwable $e) {
+$lastConnectionError = null;
+
+for ($attempt = 1; $attempt <= mongoConnectionAttempts(); $attempt++) {
+    try {
+        $client = new Client($mongoUri);
+        $conn = $client->selectDatabase($dbname);
+        $conn->command(['ping' => 1]);
+        $dbAvailable = true;
+        break;
+    } catch (\Throwable $e) {
+        $lastConnectionError = $e;
+        $conn = null;
+
+        error_log(sprintf(
+            'MongoDB connection attempt %d/%d failed: %s',
+            $attempt,
+            mongoConnectionAttempts(),
+            $e->getMessage()
+        ));
+
+        if ($attempt < mongoConnectionAttempts()) {
+            usleep(mongoRetryDelayMicros());
+        }
+    }
+}
+
+if (!$dbAvailable) {
     $connectionMessage = $mongoUriConfig['value'] !== null
         ? 'Unable to connect to MongoDB. Verify the deployment environment variables and Atlas network access.'
         : 'Unable to connect to MongoDB. No connection string is configured, so the app fell back to mongodb://localhost:27017. Set MONGO_URI or create backend/config.local.php.';
 
     setDatabaseUnavailable(
         $connectionMessage,
-        $e->getMessage()
+        $lastConnectionError ? $lastConnectionError->getMessage() : null
     );
     return;
 }
