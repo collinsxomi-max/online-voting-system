@@ -3,6 +3,7 @@ define('ALLOW_DB_FAILURE', true);
 include '../backend/db.php';
 include '../includes/header.php';
 $registrationAvailable = db_is_available();
+$registrationUnavailableMessage = 'Registration is temporarily unavailable. ' . db_error_message();
 ?>
 
 <div class="page-center">
@@ -13,7 +14,7 @@ $registrationAvailable = db_is_available();
     <?php if (!$registrationAvailable): ?>
       <div class="alert error">
         <span class="icon">&#9888;</span>
-        <span>Registration is temporarily unavailable because the database connection is down.</span>
+        <span><?= htmlspecialchars($registrationUnavailableMessage, ENT_QUOTES, 'UTF-8') ?></span>
       </div>
     <?php endif; ?>
 

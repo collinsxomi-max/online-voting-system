@@ -3,6 +3,7 @@ define('ALLOW_DB_FAILURE', true);
 include '../backend/db.php';
 include '../includes/header.php';
 $adminLoginAvailable = db_is_available();
+$adminLoginUnavailableMessage = 'Admin login is temporarily unavailable. ' . db_error_message();
 ?>
 
 <div class="page-center">
@@ -13,7 +14,7 @@ $adminLoginAvailable = db_is_available();
     <?php if (!$adminLoginAvailable): ?>
       <div class="alert error">
         <span class="icon">&#9888;</span>
-        <span>Admin login is temporarily unavailable because the database connection is down.</span>
+        <span><?= htmlspecialchars($adminLoginUnavailableMessage, ENT_QUOTES, 'UTF-8') ?></span>
       </div>
     <?php endif; ?>
 

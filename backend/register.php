@@ -6,7 +6,7 @@ session_start();
 if (!db_is_available()) {
     $_SESSION['flash'] = [
         'type' => 'error',
-        'message' => 'Registration is temporarily unavailable because the database connection is down.'
+        'message' => 'Registration is temporarily unavailable. ' . db_error_message()
     ];
     header('Location: ../frontend/register.php');
     exit;

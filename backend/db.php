@@ -24,20 +24,34 @@ function readEnvironmentValue(string $key): ?string
     return null;
 }
 
-function getMongoConfigValue(array $config, string $key, array $envKeys = []): ?string
+function resolveMongoConfigValue(array $config, string $key, array $envKeys = []): array
 {
     if (array_key_exists($key, $config) && $config[$key] !== '') {
-        return $config[$key];
+        return [
+            'value' => $config[$key],
+            'source' => 'local:' . $key,
+        ];
     }
 
     foreach ($envKeys as $envKey) {
         $envValue = readEnvironmentValue($envKey);
         if ($envValue !== null) {
-            return $envValue;
+            return [
+                'value' => $envValue,
+                'source' => 'env:' . $envKey,
+            ];
         }
     }
 
-    return null;
+    return [
+        'value' => null,
+        'source' => null,
+    ];
+}
+
+function getMongoConfigValue(array $config, string $key, array $envKeys = []): ?string
+{
+    return resolveMongoConfigValue($config, $key, $envKeys)['value'];
 }
 
 function inferMongoDatabaseName(string $mongoUri): ?string
@@ -99,6 +113,20 @@ function db_error_message(): string
         : 'The database connection is currently unavailable.';
 }
 
+function db_config_diagnostics(): array
+{
+    global $dbConfigDiagnostics;
+
+    return is_array($dbConfigDiagnostics)
+        ? $dbConfigDiagnostics
+        : [
+            'uri_source' => null,
+            'db_source' => null,
+            'uri_configured' => false,
+            'db_configured' => false,
+        ];
+}
+
 $localConfigFile = __DIR__ . '/config.local.php';
 $localConfig = file_exists($localConfigFile) ? require $localConfigFile : [];
 if (!is_array($localConfig)) {
@@ -108,6 +136,12 @@ if (!is_array($localConfig)) {
 $conn = null;
 $dbAvailable = false;
 $dbError = null;
+$dbConfigDiagnostics = [
+    'uri_source' => null,
+    'db_source' => null,
+    'uri_configured' => false,
+    'db_configured' => false,
+];
 
 $mongoExtensionLoaded = extension_loaded('mongodb');
 $composerAutoload = __DIR__ . '/../vendor/autoload.php';
@@ -128,8 +162,19 @@ require $composerAutoload;
 use MongoDB\Client;
 use MongoDB\BSON\ObjectId;
 
-$mongoUri = getMongoConfigValue($localConfig, 'mongo_uri', ['MONGO_URI', 'MONGODB_URI', 'MONGODB_URL']) ?: 'mongodb://localhost:27017';
-$dbname = getMongoConfigValue($localConfig, 'mongo_db', ['MONGO_DB', 'MONGODB_DB', 'MONGODB_DATABASE']) ?: inferMongoDatabaseName($mongoUri) ?: 'voting_system';
+$mongoUriConfig = resolveMongoConfigValue($localConfig, 'mongo_uri', ['MONGO_URI', 'MONGODB_URI', 'MONGODB_URL']);
+$mongoUri = $mongoUriConfig['value'] ?: 'mongodb://localhost:27017';
+
+$mongoDbConfig = resolveMongoConfigValue($localConfig, 'mongo_db', ['MONGO_DB', 'MONGODB_DB', 'MONGODB_DATABASE']);
+$inferredDbName = inferMongoDatabaseName($mongoUri);
+$dbname = $mongoDbConfig['value'] ?: $inferredDbName ?: 'voting_system';
+
+$dbConfigDiagnostics = [
+    'uri_source' => $mongoUriConfig['source'] ?: 'default',
+    'db_source' => $mongoDbConfig['source'] ?: ($inferredDbName !== null ? 'uri-path' : 'default'),
+    'uri_configured' => $mongoUriConfig['value'] !== null,
+    'db_configured' => $mongoDbConfig['value'] !== null,
+];
 
 try {
     $client = new Client($mongoUri);
@@ -137,8 +182,12 @@ try {
     $conn->command(['ping' => 1]);
     $dbAvailable = true;
 } catch (\Throwable $e) {
+    $connectionMessage = $mongoUriConfig['value'] !== null
+        ? 'Unable to connect to MongoDB. Verify the deployment environment variables and Atlas network access.'
+        : 'Unable to connect to MongoDB. No connection string is configured, so the app fell back to mongodb://localhost:27017. Set MONGO_URI or create backend/config.local.php.';
+
     setDatabaseUnavailable(
-        'Unable to connect to MongoDB. Verify the deployment environment variables and Atlas network access.',
+        $connectionMessage,
         $e->getMessage()
     );
     return;

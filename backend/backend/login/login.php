@@ -6,7 +6,7 @@ session_start();
 if (!db_is_available()) {
     $_SESSION['flash'] = [
         'type' => 'error',
-        'message' => 'Login is temporarily unavailable because the database connection is down.'
+        'message' => 'Login is temporarily unavailable. ' . db_error_message()
     ];
     header("Location: ../frontend/login.php");
     exit;

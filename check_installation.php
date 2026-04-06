@@ -7,30 +7,42 @@ function envLabel(array $names): string
     return implode(' or ', array_map(static fn($name) => '$' . $name, $names));
 }
 
+function configSourceLabel(?string $source): string
+{
+    if ($source === null) {
+        return 'Not configured';
+    }
+
+    if ($source === 'default') {
+        return 'Default localhost fallback';
+    }
+
+    if ($source === 'uri-path') {
+        return 'Inferred from the Mongo URI path';
+    }
+
+    if (str_starts_with($source, 'env:')) {
+        return 'Environment variable ' . substr($source, 4);
+    }
+
+    if (str_starts_with($source, 'local:')) {
+        return 'Local config file key ' . substr($source, 6);
+    }
+
+    return $source;
+}
+
 $mongoUriNames = ['MONGO_URI', 'MONGODB_URI', 'MONGODB_URL'];
 $mongoDbNames = ['MONGO_DB', 'MONGODB_DB', 'MONGODB_DATABASE'];
 
 $phpVersionOk = version_compare(PHP_VERSION, '8.1.0', '>=');
 $mongoExtensionLoaded = extension_loaded('mongodb');
 $vendorExists = file_exists(__DIR__ . '/vendor/autoload.php');
-$mongoUri = null;
-$mongoDb = null;
-
-foreach ($mongoUriNames as $name) {
-    $value = readEnvironmentValue($name);
-    if ($value !== null) {
-        $mongoUri = $value;
-        break;
-    }
-}
-
-foreach ($mongoDbNames as $name) {
-    $value = readEnvironmentValue($name);
-    if ($value !== null) {
-        $mongoDb = $value;
-        break;
-    }
-}
+$configDiagnostics = db_config_diagnostics();
+$mongoUriConfigured = $configDiagnostics['uri_configured'] ?? false;
+$mongoDbConfigured = $configDiagnostics['db_configured'] ?? false;
+$mongoUriSource = $configDiagnostics['uri_source'] ?? null;
+$mongoDbSource = $configDiagnostics['db_source'] ?? null;
 
 $checks = [];
 
@@ -55,18 +67,24 @@ $checks['Composer Dependencies'] = [
     'fix' => $vendorExists ? null : 'Run composer install --no-dev on the deployment server during build/release.'
 ];
 
-$checks['Mongo URI Env'] = [
-    'required' => envLabel($mongoUriNames),
-    'current' => $mongoUri !== null ? 'Configured' : 'Missing',
-    'status' => $mongoUri !== null ? 'PASS' : 'FAIL',
-    'fix' => $mongoUri !== null ? null : 'Add the MongoDB Atlas connection string as an environment variable.'
+$checks['Mongo URI Config'] = [
+    'required' => envLabel($mongoUriNames) . ' or backend/config.local.php',
+    'current' => $mongoUriConfigured
+        ? 'Configured via ' . configSourceLabel($mongoUriSource)
+        : 'Not configured explicitly (using localhost fallback)',
+    'status' => $mongoUriConfigured ? 'PASS' : (db_is_available() ? 'WARN' : 'FAIL'),
+    'fix' => $mongoUriConfigured ? null : 'Set MONGO_URI for deployment, or add backend/config.local.php for local development.'
 ];
 
-$checks['Mongo DB Env'] = [
-    'required' => envLabel($mongoDbNames),
-    'current' => $mongoDb !== null ? $mongoDb : 'Not explicitly set',
-    'status' => $mongoDb !== null ? 'PASS' : 'WARN',
-    'fix' => $mongoDb !== null ? null : 'Optional, but recommended. Set the database name to voting-system.'
+$checks['Mongo DB Config'] = [
+    'required' => envLabel($mongoDbNames) . ' or backend/config.local.php',
+    'current' => $mongoDbConfigured
+        ? 'Configured via ' . configSourceLabel($mongoDbSource)
+        : configSourceLabel($mongoDbSource),
+    'status' => $mongoDbConfigured || $mongoDbSource === 'uri-path' ? 'PASS' : 'WARN',
+    'fix' => $mongoDbConfigured || $mongoDbSource === 'uri-path'
+        ? null
+        : 'Optional, but recommended. Set the database name to voting-system.'
 ];
 
 $checks['Atlas Connection'] = [
@@ -249,7 +267,8 @@ $warnings = array_filter($checks, static fn($check) => $check['status'] === 'WAR
     <section class="panel" style="margin-top: 20px;">
         <h2 style="margin-top: 0;">Most Likely Deployment Fix</h2>
         <ul>
-            <li>Set <code>MONGO_URI</code> to your Atlas URI and <code>MONGO_DB</code> to <code>voting-system</code>.</li>
+            <li>For deployment, set <code>MONGO_URI</code> to your Atlas URI and <code>MONGO_DB</code> to <code>voting-system</code>.</li>
+            <li>For local development, copy <code>backend/config.example.php</code> to <code>backend/config.local.php</code> and fill in your Mongo settings.</li>
             <li>Run <code>composer install --no-dev</code> on the server so <code>vendor/autoload.php</code> exists.</li>
             <li>Make sure the server PHP runtime has the <code>mongodb</code> extension enabled.</li>
             <li>Add your deployment server IP to MongoDB Atlas Network Access, or temporarily allow <code>0.0.0.0/0</code> while testing.</li>
